@@ -49,7 +49,7 @@ if not api_key:
 cleaned_api_key = api_key.strip()
 
 # ------------------------------------------------------------------------------
-# 3. 核心 API 交互函数 (通用 REST 接口，完全兼容 AQ. 和 AIzaSy 开头的 Key)
+# 3. 核心 API 交互函数 (更新为最新的 gemini-3.6-flash 模型)
 # ------------------------------------------------------------------------------
 def extract_information_from_file(uploaded_file, key):
     """使用通用 REST API 提取上传文件中的关键信息"""
@@ -72,8 +72,8 @@ def extract_information_from_file(uploaded_file, key):
     mime_type = uploaded_file.type
     base64_data = base64.b64encode(file_bytes).decode("utf-8")
 
-    # REST 接口地址
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={key}"
+    # 更新为最新的 gemini-3.6-flash 模型地址
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={key}"
     
     payload = {
         "contents": [{
