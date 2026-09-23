@@ -2,9 +2,8 @@ import streamlit as st
 import pandas as pd
 import json
 import io
+import requests
 from docx import Document
-from google import genai
-from google.genai import types
 
 # ------------------------------------------------------------------------------
 # 1. 页面基本配置
@@ -46,14 +45,16 @@ if not api_key:
     st.warning("👈 请先在左侧边栏输入有效的 Gemini API Key 以激活 AI 功能。")
     st.stop()
 
-# 初始化 Client
-client = genai.Client(api_key=api_key.strip())
+# 清理 Key 里的前后空格/换行
+cleaned_api_key = api_key.strip()
 
 # ------------------------------------------------------------------------------
-# 3. 核心 API 交互函数
+# 3. 核心 API 交互函数 (通用 REST 接口，完全兼容 AQ. 和 AIzaSy 开头的 Key)
 # ------------------------------------------------------------------------------
-def extract_information_from_file(uploaded_file):
-    """提取上传文件中的关键信息"""
+def extract_information_from_file(uploaded_file, key):
+    """使用通用 REST API 提取上传文件中的关键信息"""
+    import base64
+    
     prompt = """
     请从上传的文档/图片中，精准提取以下信息并以标准 JSON 格式返回。
     若某个字段在文档中未提及，请填 null。不要包含任何 markdown 代码块标记，只返回 JSON 字符串。
@@ -69,20 +70,44 @@ def extract_information_from_file(uploaded_file):
 
     file_bytes = uploaded_file.read()
     mime_type = uploaded_file.type
+    base64_data = base64.b64encode(file_bytes).decode("utf-8")
+
+    # REST 接口地址
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={key}"
+    
+    payload = {
+        "contents": [{
+            "parts": [
+                {
+                    "inline_data": {
+                        "mime_type": mime_type,
+                        "data": base64_data
+                    }
+                },
+                {
+                    "text": prompt
+                }
+            ]
+        }],
+        "generationConfig": {
+            "response_mime_type": "application/json"
+        }
+    }
 
     try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=[
-                types.Part.from_bytes(data=file_bytes, mime_type=mime_type),
-                prompt
-            ],
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json"
-            )
-        )
-        data = json.loads(response.text)
+        response = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
+        res_json = response.json()
+
+        if response.status_code != 200:
+            error_msg = res_json.get("error", {}).get("message", "未知错误")
+            st.error(f"API 请求失败 ({response.status_code}): {error_msg}")
+            return None
+
+        # 解析返回文本
+        raw_text = res_json["candidates"][0]["content"]["parts"][0]["text"]
+        data = json.loads(raw_text)
         return data
+
     except Exception as e:
         st.error(f"解析失败: {str(e)}")
         return None
@@ -100,13 +125,11 @@ def fill_docx_template(template_bytes, data_dict):
         "{{金额}}": str(data_dict.get("amount", "") or "")
     }
 
-    # 替换段落中的占位符
     for p in doc.paragraphs:
         for key, value in placeholder_map.items():
             if key in p.text:
                 p.text = p.text.replace(key, value)
 
-    # 替换表格中的占位符
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
@@ -141,7 +164,7 @@ with col1:
         st.success(f"已读取文件: `{uploaded_source.name}`")
         if st.button("🚀 开始 AI 智能提取", type="primary"):
             with st.spinner("AI 正在扫描文档并提取要素..."):
-                extracted_data = extract_information_from_file(uploaded_source)
+                extracted_data = extract_information_from_file(uploaded_source, cleaned_api_key)
                 if extracted_data:
                     st.session_state["extracted_data"] = extracted_data
                     st.toast("提取成功！请在右侧核对数据。", icon="✅")
