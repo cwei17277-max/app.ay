@@ -22,7 +22,6 @@ st.set_page_config(
 st.sidebar.title("⚙️ 设置")
 st.sidebar.markdown("---")
 
-# 安全读取 Secrets（防止 Secrets 配置格式不规范导致程序崩溃）
 secret_key = ""
 try:
     if "GEMINI_API_KEY" in st.secrets:
@@ -30,12 +29,11 @@ try:
 except Exception:
     pass
 
-# 优先从 Streamlit Secrets 读取，若无则允许界面输入
 api_key = st.sidebar.text_input(
     "Google Gemini API Key",
     type="password",
     value=secret_key,
-    help="可在 Google AI Studio 免费获取 API Key"
+    help="可在 Google AI Studio (aistudio.google.com) 免费获取 API Key"
 )
 
 st.sidebar.info(
@@ -45,11 +43,11 @@ st.sidebar.info(
 )
 
 if not api_key:
-    st.warning("👈 请先在左侧边栏输入 Gemini API Key 以激活 AI 功能。")
+    st.warning("👈 请先在左侧边栏输入有效的 Gemini API Key 以激活 AI 功能。")
     st.stop()
 
 # 初始化 Client
-client = genai.Client(api_key=api_key)
+client = genai.Client(api_key=api_key.strip())
 
 # ------------------------------------------------------------------------------
 # 3. 核心 API 交互函数
@@ -157,12 +155,12 @@ with col2:
         st.warning("⚠️ 高风险控制：请仔细核对并手动修正 AI 提取的信息，确认无误后方可导出。")
         
         with st.form("verify_form"):
-            name = st.text_input("姓名", value=data.get("name", ""))
-            address = st.text_input("地址", value=data.get("address", ""))
-            company = st.text_input("公司", value=data.get("company", ""))
-            date = st.text_input("日期", value=data.get("date", ""))
-            id_number = st.text_input("证件号", value=data.get("id_number", ""))
-            amount = st.text_input("金额", value=data.get("amount", ""))
+            name = st.text_input("姓名", value=data.get("name", "") or "")
+            address = st.text_input("地址", value=data.get("address", "") or "")
+            company = st.text_input("公司", value=data.get("company", "") or "")
+            date = st.text_input("日期", value=data.get("date", "") or "")
+            id_number = st.text_input("证件号", value=data.get("id_number", "") or "")
+            amount = st.text_input("金额", value=data.get("amount", "") or "")
             
             confirm_check = st.checkbox("我已人工复核上述所有数据，确认真实准确", value=False)
             submit_btn = st.form_submit_button("确认并锁定数据")
@@ -198,7 +196,6 @@ if "verified_data" in st.session_state:
         st.markdown("将确认的数据打包导出为标准 Excel 表格：")
         df = pd.DataFrame([v_data])
         
-        # 重命名列名以符合中文规范
         df_rename = df.rename(columns={
             "name": "姓名", "address": "地址", "company": "公司",
             "date": "日期", "id_number": "证件号", "amount": "金额"
@@ -232,5 +229,4 @@ if "verified_data" in st.session_state:
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
 else:
-    st.gray()
-    st.text("请先在步骤 2 中完成人工确认，即可激活导出功能。")
+    st.info("💡 请先在步骤 2 中完成人工确认，即可激活导出功能。")
