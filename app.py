@@ -17,22 +17,27 @@ st.set_page_config(
 )
 
 # ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # 2. API Key 初始化 & Sidebar 配置
 # ------------------------------------------------------------------------------
 st.sidebar.title("⚙️ 设置")
 st.sidebar.markdown("---")
 
+# 安全读取 Secrets（防止格式错误导致程序崩溃）
+secret_key = ""
+try:
+    if "GEMINI_API_KEY" in st.secrets:
+        secret_key = st.secrets["GEMINI_API_KEY"]
+except Exception:
+    pass
+
 # 优先从 Streamlit Secrets 读取，若无则允许界面输入
 api_key = st.sidebar.text_input(
     "Google Gemini API Key",
     type="password",
-    value=st.secrets.get("GEMINI_API_KEY", ""),
+    value=secret_key,
     help="可在 Google AI Studio 免费获取 API Key"
 )
-
-st.sidebar.info("""
-### 💡 设计原则
-**AI 辅助提取 ➔ 人工确认 ➔ 导出文件**  
 高风险业务流程中，AI 仅作填表预处理，最终提交前必须经过人工复核。
 """)
 
